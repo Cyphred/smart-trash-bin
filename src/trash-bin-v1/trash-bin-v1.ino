@@ -14,7 +14,6 @@
 */
 
 #include "gsm.h"
-
 // Maps the SIM800L TX and RX pins to digital pins on the arduino
 #define SIM800L_TX_PIN 8
 #define SIM800L_RX_PIN 7
@@ -22,9 +21,11 @@
 #define ACTION_TIMEOUT 5000
 gsm sim800l(SIM800L_TX_PIN,SIM800L_RX_PIN, SIM800L_BAUD_RATE);
 
+#include "sr04.h"
 // Maps the HC-SR04
-#define ECHO_PIN 2
-#define TRIG_PIN 3
+#define ECHO_PIN 5
+#define TRIG_PIN 6
+sr04 sensor(ECHO_PIN, TRIG_PIN);
 
 void setup() {
 	Serial.begin(115200);
