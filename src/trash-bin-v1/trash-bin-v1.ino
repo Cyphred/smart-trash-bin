@@ -27,12 +27,20 @@ gsm sim800l(SIM800L_TX_PIN,SIM800L_RX_PIN, SIM800L_BAUD_RATE);
 #define TRIG_PIN 6
 sr04 sensor(ECHO_PIN, TRIG_PIN);
 
+#include "Buzzer.h"
+Buzzer buzzer(11);
+
+#include "History.h"
+#define FULL_THRESHOLD 30
+History history(32767, FULL_THRESHOLD);
+
+
 void setup() {
 	Serial.begin(115200);
 
 	// Test if the GSM module is responding to basic AT command.
-	if (! sim800l.isReady(ACTION_TIMEOUT))
-		// TODO Hold and signal error
+	if (sim800l.isReady(ACTION_TIMEOUT))
+		buzzer.genericOK();
 
 }
 
