@@ -45,4 +45,11 @@ void setup() {
 }
 
 void loop() {
+	int measurement = sensor.measure();
+	Serial.println(measurement);
+	history.addPoint(measurement);
+	if (history.dataViolatesThreshold()) {
+		buzzer.genericError();
+	}
+	delay(1000);
 }
