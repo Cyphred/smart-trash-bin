@@ -4,28 +4,6 @@ gsm::gsm(const int tx_pin, const int rx_pin, const int baud_rate) : gsm_(tx_pin,
 	gsm_.begin(baud_rate);
 }
 
-bool gsm::initialize() {
-	bool pass;
-	for (int i = 0; i < 3; i++) {
-		if (isReady(5000)) {
-			pass = true;
-			break;
-		}
-	}
-
-	if (!pass) {
-		Serial.println("GSM ERROR");
-		return false;
-	}
-
-	if (!hasSIM()) {
-		Serial.println("NO SIM");
-		return false;
-	}
-
-	return true;
-}
-
 /**
  * Checks if the GSM module is responding to basic AT commands.
  *

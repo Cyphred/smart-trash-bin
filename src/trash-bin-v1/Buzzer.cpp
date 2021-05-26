@@ -3,7 +3,7 @@
 #define LONG_TONE 1500
 #define SHORT_TONE 500
 #define OK_FREQ 2500
-#define ERR_FREQ 500
+#define ERR_FREQ 250
 
 Buzzer::Buzzer(int pin) {
 	this->pin = pin;
@@ -12,10 +12,12 @@ Buzzer::Buzzer(int pin) {
 
 void Buzzer::genericOK() {
 	tone(pin, OK_FREQ, SHORT_TONE);
+	delay(SHORT_TONE);
 }
 
 void Buzzer::genericError() {
 	tone(pin, ERR_FREQ, SHORT_TONE);
+	delay(SHORT_TONE);
 }
 
 /**
@@ -32,17 +34,5 @@ void Buzzer::disconnected() {
 	for (byte i = 0; i < 10; i++) {
 		tone(pin, OK_FREQ, SHORT_TONE);
 		delay(SHORT_TONE + 200);
-	}
-}
-
-/**
-* 3 long buzzes with 200 ms in between.
-* This means the transceiver is undetectable by the Arduino.
-* This error requires manual inspection/diagnosis.
-*/
-void Buzzer::radioError() {
-	for (byte i = 0; i < 3; i++) {
-		tone(pin, ERR_FREQ, LONG_TONE);
-		delay(LONG_TONE + 200);
 	}
 }

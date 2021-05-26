@@ -7,7 +7,6 @@
 class gsm {
 	public:
 		gsm(const int tx_pin, const int rx_pin, const int baud_rate);
-		bool initialize();
 		bool isReady(unsigned long timeout);
 		bool hasSIM();
 		bool isRegistered();

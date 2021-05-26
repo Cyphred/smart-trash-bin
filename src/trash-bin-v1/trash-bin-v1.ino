@@ -37,14 +37,9 @@ struct Status {
 	unsigned long lastSMS;
 } status;
 
-
-
 void setup() {
 	Serial.begin(115200);
-	if (sim800l.initialize())
-		buzzer.genericOK();
-	else
-		buzzer.genericError();
+	gsm_initialize();
 }
 
 void loop() {
