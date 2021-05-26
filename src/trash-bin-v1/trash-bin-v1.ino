@@ -34,11 +34,18 @@ Buzzer buzzer(5);
 #define MAX_STREAK_SIZE 10
 History history(FULL_THRESHOLD, MAX_STREAK_SIZE);
 
+#define MAX_SMS_ALERTS 3
+#define SMS_ALERT_INTERVAL 20 // Interval in minutes between each SMS reminder.
 struct Status {
 	unsigned long lastGsmStatusCheck = 0;
 	bool gsmActive;
 	bool gsmRegistered;
 	int lastSignalStrength;
+	unsigned long nextSMS;
+	unsigned long lastSMS;
+	byte sentSMSCount = 0;
+	String SMSRecipient = "639491382795";
+	bool SMSRetry;
 } status;
 
 void setup() {
@@ -57,6 +64,13 @@ void loop() {
 			status.lastSignalStrength = sim800l.getSignalStrength();
 		}
 
+		if (status.SMSRetry) {
+			unsigned long time = (status.nextSMS - millis()) / 1000.0;
+			Serial.print("Re-sending SMS in ");
+			Serial.print(time);
+			Serial.println("s");
+		}
+
 		Serial.print("GSM ");
 		printStatus(status.gsmActive);
 		Serial.print("Registered ");
@@ -69,6 +83,61 @@ void loop() {
 	}
 
 	measurementRoutine();
+
+	if (history.isFull()) {
+		Serial.println("Bin full detected.");
+		SMSRoutine();
+	}
+}
+
+void SMSRoutine() {
+	if (status.sentSMSCount < MAX_SMS_ALERTS) {
+		if (isTimeToSendSMS()) {
+			if (!status.gsmRegistered || !status.gsmActive) {
+				Serial.println("GSM not ready to send.");
+				Serial.println("Retry in 5 minutes...");
+				offsetNextSMS(5); // Re-attempt to send in 5 minutes.
+				status.SMSRetry = true;
+				return;
+			}
+
+			Serial.print("Sending SMS to ");
+			Serial.print(status.SMSRecipient);
+			Serial.print("...");
+			bool result = sim800l.sendSMS(status.SMSRecipient, "NOTICE: Bin is full and requires emptying.");
+			printStatus(result);
+			if (result) {
+				status.lastSMS = millis();
+				status.sentSMSCount++;
+				status.SMSRetry = false;
+			}
+			else {
+				Serial.println("Retry in 5 minutes...");
+				offsetNextSMS(5); // Re-attempt to send in 5 minutes.
+				status.SMSRetry = true;
+			}
+		}
+	}
+}
+
+/**
+* Offsets the time for the next SMS to be sent.
+*
+* @param offset is the time in minutes from current time.
+*/
+void offsetNextSMS(unsigned int offset) {
+	status.nextSMS = millis() + (offset * 60000);
+}
+
+bool isTimeToSendSMS() {
+	if (status.SMSRetry) {
+		if (millis() >= status.nextSMS)
+			return true;
+	}
+	else if ((millis() - status.lastSMS) >= SMS_ALERT_INTERVAL)
+		return true;
+	
+	return false;
 }
 
 void measurementRoutine() {
@@ -89,6 +158,4 @@ void measurementRoutine() {
 	Serial.println("cm");
 
 	history.addPoint(distance);
-	if (history.isFull())
-		buzzer.genericError();
 }
