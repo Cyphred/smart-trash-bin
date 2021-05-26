@@ -120,3 +120,26 @@ String gsm::getResponseAsString(const unsigned long timeout) {
 
 	return temp;
 }
+
+/**
+ * Sends an SMS to a number.
+ *
+ * @param number is the phone number of the recipient.
+ * @param message is the content of the message to be sent.
+ * @return is true if the message has been successfully sent. False if not.
+ */
+bool gsm::sendSMS(String number, String message) {
+	gsm_.println("AT+CMGF=1");
+	if (!waitForExpectedResponse(5000, "OK"))
+		return false;
+
+	number = "AT+CMGS=\"+" + number + "\"";
+	gsm_.println(number);
+	if (!waitForExpectedResponse(5000, ">"))
+		return false;
+
+	gsm_.println(message);
+	gsm_.write(26);
+
+	return waitForExpectedResponse(20000, "OK");
+}

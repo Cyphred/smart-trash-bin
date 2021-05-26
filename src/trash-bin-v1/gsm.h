@@ -12,6 +12,7 @@ class gsm {
 		bool isRegistered();
 		int getSignalStrength();
 		void debug();
+		bool sendSMS(String number, String message);
 	private:
 		SoftwareSerial gsm_;
 		String gsmData;
