@@ -5,13 +5,13 @@
 
 class History {
 	public:
-		History(unsigned int defaultValues, unsigned int threshold);
-		void addPoint(unsigned int point);
-		bool dataViolatesThreshold();
+		History(const unsigned int threshold, const int max_streak_size);
+		void addPoint(int * values);
+		bool isFull();
 	private:
-		unsigned int data[20];
-		byte currentPoint;
 		unsigned int threshold;
+		int max_streak_size;
+		unsigned int current_streak_size;
 };
 
 #endif

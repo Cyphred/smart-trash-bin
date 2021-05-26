@@ -15,24 +15,23 @@
 
 #include "gsm.h"
 // Maps the SIM800L TX and RX pins to digital pins on the arduino
-#define SIM800L_TX_PIN 8
-#define SIM800L_RX_PIN 7
+#define SIM800L_TX_PIN 7
+#define SIM800L_RX_PIN 2
 #define SIM800L_BAUD_RATE 9600
-#define ACTION_TIMEOUT 5000
 gsm sim800l(SIM800L_TX_PIN,SIM800L_RX_PIN, SIM800L_BAUD_RATE);
 
 #include "sr04.h"
-// Maps the HC-SR04
-#define ECHO_PIN 5
-#define TRIG_PIN 6
-sr04 sensor(ECHO_PIN, TRIG_PIN);
+sr04 sensor_1(8, 9);
+sr04 sensor_2(10, 11);
+sr04 sensor_3(12, 13);
 
 #include "Buzzer.h"
-Buzzer buzzer(11);
+Buzzer buzzer(5);
 
 #include "History.h"
 #define FULL_THRESHOLD 30
-History history(32767, FULL_THRESHOLD);
+#define MAX_STREAK_SIZE 10
+History history(FULL_THRESHOLD, MAX_STREAK_SIZE);
 
 
 void setup() {
@@ -45,11 +44,23 @@ void setup() {
 }
 
 void loop() {
-	int measurement = sensor.measure();
-	Serial.println(measurement);
-	history.addPoint(measurement);
-	if (history.dataViolatesThreshold()) {
+	int distance[3];
+	delay(100);
+	distance[0] = sensor_1.measure();
+	delay(100);
+	distance[1] = sensor_2.measure();
+	delay(100);
+	distance[2] = sensor_3.measure();
+
+	Serial.print("1: ");
+	Serial.print(distance[0]);
+	Serial.print("cm\t\t2: ");
+	Serial.print(distance[1]);
+	Serial.print("cm\t\t3: ");
+	Serial.print(distance[2]);
+	Serial.println("cm");
+
+	history.addPoint(distance);
+	if (history.isFull())
 		buzzer.genericError();
-	}
-	delay(1000);
 }
