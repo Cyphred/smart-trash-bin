@@ -19,6 +19,7 @@
 #define SIM800L_RX_PIN 2
 #define SIM800L_BAUD_RATE 9600
 gsm sim800l(SIM800L_TX_PIN,SIM800L_RX_PIN, SIM800L_BAUD_RATE);
+#define GSM_STATUS_CHECK_INTERVAL 5000
 
 #include "sr04.h"
 sr04 sensor_1(8, 9);
@@ -34,15 +35,43 @@ Buzzer buzzer(5);
 History history(FULL_THRESHOLD, MAX_STREAK_SIZE);
 
 struct Status {
-	unsigned long lastSMS;
+	unsigned long lastGsmStatusCheck = 0;
+	bool gsmActive;
+	bool gsmRegistered;
+	int lastSignalStrength;
 } status;
 
 void setup() {
 	Serial.begin(115200);
 	gsm_initialize();
+	//sim800l.debug();
 }
 
 void loop() {
+	if ((millis() - status.lastGsmStatusCheck) >= GSM_STATUS_CHECK_INTERVAL) {
+		Serial.println("Checking GSM Status...");
+		status.gsmActive = sim800l.isReady(5000);
+
+		if (status.gsmActive) {
+			status.gsmRegistered = sim800l.isRegistered();
+			status.lastSignalStrength = sim800l.getSignalStrength();
+		}
+
+		Serial.print("GSM ");
+		printStatus(status.gsmActive);
+		Serial.print("Registered ");
+		printStatus(status.gsmRegistered);
+		Serial.print("Signal ");
+		Serial.print(status.lastSignalStrength);
+		Serial.println("%");
+
+		status.lastGsmStatusCheck = millis();
+	}
+
+	measurementRoutine();
+}
+
+void measurementRoutine() {
 	int distance[3];
 	delay(100);
 	distance[0] = sensor_1.measure();

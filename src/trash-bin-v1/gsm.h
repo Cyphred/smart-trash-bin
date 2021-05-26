@@ -10,13 +10,14 @@ class gsm {
 		bool isReady(unsigned long timeout);
 		bool hasSIM();
 		bool isRegistered();
-		byte getSignalStrength();
+		int getSignalStrength();
 		void debug();
 	private:
 		SoftwareSerial gsm_;
 		String gsmData;
 		bool isReadableCharacter(const char character);
-		bool waitForActionResult(const unsigned long timeout);
+		bool waitForExpectedResponse(const unsigned long timeout, const String expected);
+		String getResponseAsString(const unsigned long timeout);
 };
 
 #endif

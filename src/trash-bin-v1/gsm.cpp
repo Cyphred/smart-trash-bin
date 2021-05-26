@@ -12,7 +12,7 @@ gsm::gsm(const int tx_pin, const int rx_pin, const int baud_rate) : gsm_(tx_pin,
  */
 bool gsm::isReady(const unsigned long timeout) {
 	gsm_.println("AT");
-	waitForActionResult(timeout);
+	return waitForExpectedResponse(timeout, "OK");
 }
 
 /**
@@ -22,17 +22,38 @@ bool gsm::isReady(const unsigned long timeout) {
  */
 bool gsm::hasSIM() {
 	gsm_.println("AT+CCID");
-	return waitForActionResult(5000);
+	return waitForExpectedResponse(5000, "OK");
 }
 
 bool gsm::isRegistered() {
-	return false;
+	gsm_.println("AT+CREG?");
+	return waitForExpectedResponse(5000, "0,1");
 }
 
-byte gsm::getSignalStrength() {
-	return 0;
+/**
+ * Queries for the signal strength and returns a computed percentage.
+ *
+ * @return is the signal strength in percentage.
+ */
+int gsm::getSignalStrength() {
+	gsm_.println("AT+CSQ");
+	String response = getResponseAsString(5000);
+
+	if (response.length() == 0)
+		return 0;
+
+	if (response.indexOf("OK") == -1)
+		return 0;
+
+
+	int rawValue = response.substring(15, response.indexOf(',')).toInt(); 
+	rawValue = ((float) rawValue / 30.0) * 100.0; // Percentage relative to 30, which is the highest value
+	return rawValue;
 }
 
+/**
+ * Debug mode for manually sending commands to the GSM module.
+ */
 void gsm::debug() {
 	while (true) {
 		if (gsm_.available())
@@ -60,19 +81,17 @@ bool gsm::isReadableCharacter(const char character) {
 
 /**
  * Waits for GSM to respond to a command and interprets if its response
- * is either ERROR or OK.
+ * contains an expected substring.
  *
  * @param timeout is the time to wait for the response.
  * @return is true if the device responds with `OK` within the allowed time. Otherwise, returns false.
  */
-bool gsm::waitForActionResult(const unsigned long timeout) {
+bool gsm::waitForExpectedResponse(const unsigned long timeout, const String expected) {
 	unsigned long start = millis();
 	while ((millis() - start) < timeout) {
 		if (gsm_.available() > 0) {
 			String temp = gsm_.readString();
-			temp = temp.substring( (temp.length() - 4), (temp.length() - 2) );
-
-			if (temp.equals("OK"))
+			if (temp.indexOf(expected) > -1)
 				return true;
 			else
 				return false;
@@ -80,4 +99,24 @@ bool gsm::waitForActionResult(const unsigned long timeout) {
 	}
 
 	return false;
+}
+
+/**
+ * Waits for GSM to respond to a command and return the
+ * response as a string.
+ *
+ * @param timeout is the time to wait for the response.
+ * @return is the string response.
+ */
+String gsm::getResponseAsString(const unsigned long timeout) {
+	unsigned long start = millis();
+	String temp = "";
+	while ((millis() - start) < timeout) {
+		if (gsm_.available() > 0) {
+			temp += gsm_.readString();
+			return temp;
+		}
+	}
+
+	return temp;
 }

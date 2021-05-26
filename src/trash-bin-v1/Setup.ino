@@ -11,6 +11,7 @@ void gsm_initialize() {
 
 	if (pass) {
 		printStatus(true); buzzer.genericOK();
+		status.gsmActive = true;
 	}
 	else {
 		printStatus(false); buzzer.genericError();
