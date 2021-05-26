@@ -33,14 +33,18 @@ Buzzer buzzer(5);
 #define MAX_STREAK_SIZE 10
 History history(FULL_THRESHOLD, MAX_STREAK_SIZE);
 
+struct Status {
+	unsigned long lastSMS;
+} status;
+
+
 
 void setup() {
 	Serial.begin(115200);
-
-	// Test if the GSM module is responding to basic AT command.
-	if (sim800l.isReady(ACTION_TIMEOUT))
+	if (sim800l.initialize())
 		buzzer.genericOK();
-
+	else
+		buzzer.genericError();
 }
 
 void loop() {
