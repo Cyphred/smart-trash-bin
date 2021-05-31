@@ -10,9 +10,7 @@ class Buzzer {
 		Buzzer(int pin);
 		void genericOK();
 		void genericError();
-		void initSuccess();
-		void disconnected();
-		void radioError();
+		void SMSSendingBeep();
 };
 
 #endif

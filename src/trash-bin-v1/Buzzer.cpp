@@ -21,17 +21,10 @@ void Buzzer::genericError() {
 }
 
 /**
-* 1 long beep upon successfully connecting to the station and initializing all variables.
-*/
-void Buzzer::initSuccess() {
-	tone(pin, OK_FREQ, LONG_TONE);
-}
-
-/**
  * 10 short beeps signalling disconnection from the station.
  */
-void Buzzer::disconnected() {
-	for (byte i = 0; i < 10; i++) {
+void Buzzer::SMSSendingBeep() {
+	for (byte i = 0; i < 3; i++) {
 		tone(pin, OK_FREQ, SHORT_TONE);
 		delay(SHORT_TONE + 200);
 	}
