@@ -91,6 +91,7 @@ bool gsm::waitForExpectedResponse(const unsigned long timeout, const String expe
 	while ((millis() - start) < timeout) {
 		if (gsm_.available() > 0) {
 			String temp = gsm_.readString();
+			Serial.println(temp);
 			if (temp.indexOf(expected) > -1)
 				return true;
 			else
@@ -128,6 +129,7 @@ String gsm::getResponseAsString(const unsigned long timeout) {
  * @param message is the content of the message to be sent.
  * @return is true if the message has been successfully sent. False if not.
  */
+/*
 bool gsm::sendSMS(String number, String message) {
 	gsm_.println("AT+CMGF=1");
 	if (!waitForExpectedResponse(5000, "OK"))
@@ -142,4 +144,30 @@ bool gsm::sendSMS(String number, String message) {
 	gsm_.write(26);
 
 	return waitForExpectedResponse(20000, "OK");
+}
+*/
+bool gsm::sendSMS(String number, String message) {
+	gsm_.println("AT+CMGF=1");
+	if (!waitForExpectedResponse(5000, "OK"))
+		return false;
+
+	number = "AT+CMGS=\"+" + number + "\"";
+	gsm_.println(number);
+	delay(5);
+	gsm_.println(message);
+	delay(5);
+	gsm_.write(26);
+
+	while (true) {
+		if (gsm_.available() > 0) {
+			String temp = gsm_.readString();
+			if (temp.indexOf("OK"))
+				return true;
+
+			if (temp.indexOf("ERROR"))
+				return false;
+		}
+	}
+
+	return false;
 }

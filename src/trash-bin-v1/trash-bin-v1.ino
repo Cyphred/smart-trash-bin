@@ -30,117 +30,70 @@ sr04 sensor_3(12, 13);
 Buzzer buzzer(5);
 
 #include "History.h"
-#define FULL_THRESHOLD 30
+#define FULL_THRESHOLD 60
 #define MAX_STREAK_SIZE 10
 History history(FULL_THRESHOLD, MAX_STREAK_SIZE);
 
 #define MAX_SMS_ALERTS 3
-#define SMS_ALERT_INTERVAL 20 // Interval in minutes between each SMS reminder.
+#define SMS_ALERT_INTERVAL 60000 // Interval in milliseconds between each SMS reminder.
+#define SMS_RETRY_INTERVAL 10000 // Interval in milliseconds between each SMS retry attempt
 struct Status {
 	unsigned long lastGsmStatusCheck = 0;
 	bool gsmActive;
 	bool gsmRegistered;
 	int lastSignalStrength;
-	unsigned long nextSMS;
-	unsigned long lastSMS;
-	byte sentSMSCount = 0;
-	String SMSRecipient = "639491382795";
-	bool SMSRetry;
+	String SMSRecipient = "639267064383";
+	bool full = false;
 } status;
 
 void setup() {
 	Serial.begin(115200);
 	gsm_initialize();
+
+	// Uncomment this for manual debugging of GSM module
 	//sim800l.debug();
 }
 
 void loop() {
-	if ((millis() - status.lastGsmStatusCheck) >= GSM_STATUS_CHECK_INTERVAL) {
-		Serial.println("Checking GSM Status...");
-		status.gsmActive = sim800l.isReady(5000);
-
-		if (status.gsmActive) {
-			status.gsmRegistered = sim800l.isRegistered();
-			status.lastSignalStrength = sim800l.getSignalStrength();
-		}
-
-		if (status.SMSRetry) {
-			unsigned long time = (status.nextSMS - millis()) / 1000.0;
-			Serial.print("Re-sending SMS in ");
-			Serial.print(time);
-			Serial.println("s");
-		}
-
-		Serial.print("GSM ");
-		printStatus(status.gsmActive);
-		Serial.print("Registered ");
-		printStatus(status.gsmRegistered);
-		Serial.print("Signal ");
-		Serial.print(status.lastSignalStrength);
-		Serial.println("%");
-
-		status.lastGsmStatusCheck = millis();
-	}
+	if (isTimeToCheckGSMStatus())
+		checkGSMStatus();
 
 	measurementRoutine();
 
 	if (history.isFull()) {
-		Serial.println("Bin full detected.");
-		SMSRoutine();
+		SMSAlertLoop();
 	}
 }
 
-void SMSRoutine() {
-	if (status.sentSMSCount < MAX_SMS_ALERTS) {
-		if (isTimeToSendSMS()) {
-			if (!status.gsmRegistered || !status.gsmActive) {
-				Serial.println("GSM not ready to send.");
-				Serial.println("Retry in 5 minutes...");
-				offsetNextSMS(5); // Re-attempt to send in 5 minutes.
-				status.SMSRetry = true;
-				return;
-			}
-
-			Serial.print("Sending SMS to ");
-			Serial.print(status.SMSRecipient);
-			Serial.print("...");
-			bool result = sim800l.sendSMS(status.SMSRecipient, "NOTICE: Bin is full and requires emptying.");
-			printStatus(result);
-			if (result) {
-				status.lastSMS = millis();
-				status.sentSMSCount++;
-				status.SMSRetry = false;
-			}
-			else {
-				Serial.println("Retry in 5 minutes...");
-				offsetNextSMS(5); // Re-attempt to send in 5 minutes.
-				status.SMSRetry = true;
-			}
+void SMSAlertLoop() {
+	for (int i = 0; i < 3; i++) {
+		if (SMSAlert()) {
+			Serial.println("Waiting before sending next notif...");
+			delay(SMS_ALERT_INTERVAL);
+			continue;
 		}
+
+		// Retry loop
+		while (true) {
+			Serial.print("Waiting for retry");
+			delay(SMS_RETRY_INTERVAL);
+			bool rslt = SMSAlert();
+			if (!rslt)
+				break;
+		}
+	}
+
+	Serial.println("Waiting to be cleared...");
+	while (true) {
+		;
 	}
 }
 
 /**
-* Offsets the time for the next SMS to be sent.
-*
-* @param offset is the time in minutes from current time.
+* Routine for reading the proximity sensors.
 */
-void offsetNextSMS(unsigned int offset) {
-	status.nextSMS = millis() + (offset * 60000);
-}
-
-bool isTimeToSendSMS() {
-	if (status.SMSRetry) {
-		if (millis() >= status.nextSMS)
-			return true;
-	}
-	else if ((millis() - status.lastSMS) >= SMS_ALERT_INTERVAL)
-		return true;
-	
-	return false;
-}
-
 void measurementRoutine() {
+	// Collect distance data from each sensor
 	int distance[3];
 	delay(100);
 	distance[0] = sensor_1.measure();
@@ -149,6 +102,10 @@ void measurementRoutine() {
 	delay(100);
 	distance[2] = sensor_3.measure();
 
+	// Store distnace data
+	history.addPoint(distance);
+
+	// Display distance data
 	Serial.print("1: ");
 	Serial.print(distance[0]);
 	Serial.print("cm\t\t2: ");
@@ -156,6 +113,62 @@ void measurementRoutine() {
 	Serial.print("cm\t\t3: ");
 	Serial.print(distance[2]);
 	Serial.println("cm");
+}
 
-	history.addPoint(distance);
+bool SMSAlert() {
+	buzzer.SMSSendingBeep();
+
+	// Check if the GSM is ready to send an SMS
+	if (!status.gsmActive || !status.gsmRegistered) {
+		Serial.println("GSM not ready");
+		buzzer.genericError();
+		return false;
+	}
+
+	Serial.print("Sending SMS to ");
+	Serial.print(status.SMSRecipient);
+	Serial.print("...");
+	bool result = sim800l.sendSMS(status.SMSRecipient, "NOTICE: Bin is full and requires emptying.");
+	printStatus(result);
+
+	if (result) {
+		buzzer.genericOK();
+		return true;
+	}
+	else {
+		buzzer.genericError();
+	}
+
+	return false;
+}
+
+void checkGSMStatus() {
+	Serial.println("Checking GSM Status...");
+	status.gsmActive = sim800l.isReady(5000);
+
+	if (status.gsmActive) {
+		status.gsmRegistered = sim800l.isRegistered();
+		status.lastSignalStrength = sim800l.getSignalStrength();
+	}
+
+	Serial.print("GSM ");
+	printStatus(status.gsmActive);
+	Serial.print("Registered ");
+	printStatus(status.gsmRegistered);
+	Serial.print("Signal ");
+	Serial.print(status.lastSignalStrength);
+	Serial.println("%");
+
+	status.lastGsmStatusCheck = millis();
+}
+
+/**
+* Checks if it is time to check the GSM module's status.
+*
+* @return is true if it is time. False if not.
+*/
+bool isTimeToCheckGSMStatus() {
+	if ((millis() - status.lastGsmStatusCheck) >= GSM_STATUS_CHECK_INTERVAL)
+		return true;
+	return false;
 }
