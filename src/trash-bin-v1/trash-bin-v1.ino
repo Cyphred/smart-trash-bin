@@ -43,7 +43,6 @@ struct Status {
 	bool gsmRegistered;
 	int lastSignalStrength;
 	String SMSRecipient = "639267064383";
-	bool full = false;
 } status;
 
 void setup() {
@@ -66,23 +65,29 @@ void loop() {
 }
 
 void SMSAlertLoop() {
-	for (int i = 0; i < 3; i++) {
+	// Loop only for the amount of SMS alerts specified
+	for (int i = 0; i < MAX_SMS_ALERTS; i++) {
 		if (SMSAlert()) {
+			if (i == MAX_SMS_ALERTS) // break out of loop once the last alert has been sent.
+				break;
+
 			Serial.println("Waiting before sending next notif...");
 			delay(SMS_ALERT_INTERVAL);
 			continue;
 		}
 
 		// Retry loop
+		// Blocks until the current pending SMS has been successfully sent.
 		while (true) {
 			Serial.print("Waiting for retry");
 			delay(SMS_RETRY_INTERVAL);
-			bool rslt = SMSAlert();
-			if (!rslt)
-				break;
+			if (SMSAlert())
+				break; // Break out of retry loop once SMS is successfully sent.
 		}
 	}
 
+	// Infinite loop since there's nothing left to do.
+	// At this point, the bin needs clearing and the device needs a reset.
 	Serial.println("Waiting to be cleared...");
 	while (true) {
 		;
@@ -115,8 +120,13 @@ void measurementRoutine() {
 	Serial.println("cm");
 }
 
+/**
+* Routine for handling SMS sending.
+*
+* @return is true if the message has been sent successfully. False, if not.
+*/
 bool SMSAlert() {
-	buzzer.SMSSendingBeep();
+	buzzer.SMSSendingBeep(); // Play a distinct tone to signal an SMS sending attempt.
 
 	// Check if the GSM is ready to send an SMS
 	if (!status.gsmActive || !status.gsmRegistered) {
@@ -128,20 +138,26 @@ bool SMSAlert() {
 	Serial.print("Sending SMS to ");
 	Serial.print(status.SMSRecipient);
 	Serial.print("...");
+
+	// Send message and get result.
 	bool result = sim800l.sendSMS(status.SMSRecipient, "NOTICE: Bin is full and requires emptying.");
 	printStatus(result);
 
-	if (result) {
+	// Play tones to signify the result of SMS sending attempt.
+	if (result)
 		buzzer.genericOK();
-		return true;
-	}
-	else {
+	else
 		buzzer.genericError();
-	}
 
-	return false;
+	return result;
 }
 
+/**
+* Routine for checking the GSM module's statuses.
+* This is mainly used for checking if the module is ready to send an
+* SMS. Of course, this is not factoring in whether or not the inserted
+* SIM card has available load.
+*/
 void checkGSMStatus() {
 	Serial.println("Checking GSM Status...");
 	status.gsmActive = sim800l.isReady(5000);
@@ -151,6 +167,7 @@ void checkGSMStatus() {
 		status.lastSignalStrength = sim800l.getSignalStrength();
 	}
 
+	// Print status data to serial
 	Serial.print("GSM ");
 	printStatus(status.gsmActive);
 	Serial.print("Registered ");
