@@ -15,8 +15,6 @@ class gsm {
 		bool sendSMS(String number, String message);
 	private:
 		SoftwareSerial gsm_;
-		String gsmData;
-		bool isReadableCharacter(const char character);
 		bool waitForExpectedResponse(const unsigned long timeout, const String expected);
 		String getResponseAsString(const unsigned long timeout);
 };
