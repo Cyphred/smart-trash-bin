@@ -1,5 +1,11 @@
 #include "sr04.h"
 
+/**
+ * Creates an sr04 object for interacting with HC-SR04 proximity sensors.
+ *
+ * @param echoPin is the pin that is connected to the HC-SR04's `echo` pin.
+ * @param trigPin is the pin that is connected to the HC-SR04's `trig` pin.
+ */
 sr04::sr04(const int echoPin, const int trigPin) {
 	this->echoPin = echoPin;
 	this->trigPin = trigPin;
