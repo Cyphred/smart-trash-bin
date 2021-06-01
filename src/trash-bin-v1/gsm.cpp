@@ -1,11 +1,18 @@
 #include "gsm.h"
 
+/**
+ * Constructs a GSM object.
+ *
+ * @param tx_pin is the pin that is connected to the GSM module's TX pin
+ * @param rx_pin is the pin that is connected to the GSM module's RX pin
+ * @param baud_rate is the baud rate for the software serial communication between the Arduino and the GSM module.
+ */
 gsm::gsm(const int tx_pin, const int rx_pin, const int baud_rate) : gsm_(tx_pin, rx_pin) {
-	gsm_.begin(baud_rate);
+	gsm_.begin(baud_rate); // Initializes software serial with specified baud rate
 }
 
 /**
- * Checks if the GSM module is responding to basic AT commands.
+ * Checks if the GSM module is responding to a basic AT command.
  *
  * @param timeout is the time in ms to wait for a response.
  * @return is true if a response is received within the allowed time.
@@ -33,21 +40,22 @@ bool gsm::isRegistered() {
 /**
  * Queries for the signal strength and returns a computed percentage.
  *
- * @return is the signal strength in percentage.
+ * @return is the signal strength in percentage relative to 30. Returns -1 if GSM returns an error.
  */
 int gsm::getSignalStrength() {
 	gsm_.println("AT+CSQ");
 	String response = getResponseAsString(5000);
 
-	if (response.length() == 0)
-		return 0;
+	// If response is empty, does not contain "OK", or contains "ERROR".
+	if (response.length() == 0 || response.indexOf("OK") == -1 || response.indexOf("ERROR") > -1)
+		return -1;
 
-	if (response.indexOf("OK") == -1)
-		return 0;
-
-
+	// Trim response, leaving the first digit of the returned values,
+	// then parses it as an integer to do arithmetic operations on it
+	// in the next statement.
 	int rawValue = response.substring(15, response.indexOf(',')).toInt(); 
-	rawValue = ((float) rawValue / 30.0) * 100.0; // Percentage relative to 30, which is the highest value
+
+	rawValue = ((float) rawValue / 30.0) * 100.0; // Percentage relative to 30, which is the highest value.
 	return rawValue;
 }
 
@@ -65,21 +73,6 @@ void gsm::debug() {
 }
 
 /**
- * Checks if a character is human-readable/visible.
- *
- * @return true if character is human-readable. False if not.
- */
-bool gsm::isReadableCharacter(const char character) {
-	if (character >= 32 && character <= 127)
-		return true;
-
-	if (character == 13 || character == 10)
-		return true;
-
-	return false;
-}
-
-/**
  * Waits for GSM to respond to a command and interprets if its response
  * contains an expected substring.
  *
@@ -91,7 +84,6 @@ bool gsm::waitForExpectedResponse(const unsigned long timeout, const String expe
 	while ((millis() - start) < timeout) {
 		if (gsm_.available() > 0) {
 			String temp = gsm_.readString();
-			Serial.println(temp);
 			if (temp.indexOf(expected) > -1)
 				return true;
 			else
@@ -123,41 +115,31 @@ String gsm::getResponseAsString(const unsigned long timeout) {
 }
 
 /**
- * Sends an SMS to a number.
+ * Sends an SMS to a mobile number.
+ * This function blocks until it receives a response from the module declaring the message
+ * has sent or failed.
  *
  * @param number is the phone number of the recipient.
  * @param message is the content of the message to be sent.
  * @return is true if the message has been successfully sent. False if not.
  */
-/*
 bool gsm::sendSMS(String number, String message) {
+	// Prepare GSM for sending SMS.
 	gsm_.println("AT+CMGF=1");
 	if (!waitForExpectedResponse(5000, "OK"))
 		return false;
 
 	number = "AT+CMGS=\"+" + number + "\"";
-	gsm_.println(number);
-	if (!waitForExpectedResponse(5000, ">"))
-		return false;
+	gsm_.println(number); // Declare the recipient of the message.
+	delay(5);
+	gsm_.print(message); // Send the message contents.
+	delay(5);
 
-	gsm_.println(message);
+	// Mark the end of message contents and send.
+	// byte 26 (CTRL-Z) is recognized by the GSM module as a signal to send an SMS.
 	gsm_.write(26);
 
-	return waitForExpectedResponse(20000, "OK");
-}
-*/
-bool gsm::sendSMS(String number, String message) {
-	gsm_.println("AT+CMGF=1");
-	if (!waitForExpectedResponse(5000, "OK"))
-		return false;
-
-	number = "AT+CMGS=\"+" + number + "\"";
-	gsm_.println(number);
-	delay(5);
-	gsm_.println(message);
-	delay(5);
-	gsm_.write(26);
-
+	// Loop until a response of `OK` or `ERROR` is received from the GSM module.
 	while (true) {
 		if (gsm_.available() > 0) {
 			String temp = gsm_.readString();
